@@ -46,6 +46,16 @@ def new_game
   GameState.new(word_to_guess)
 end
 
+def game_loop(gamestate)
+  puts "\tMISTAKES #{gamestate.mistakes}"
+  puts "\tINCORRECT LETTERS SO FAR: #{gamestate.incorrect_letters}"
+  puts "\t#{gamestate.guessed_so_far}"
+  input = gets.downcase.chomp
+  save(gamestate) if input == 'save'
+  char = input[0]
+  gamestate.update_state(char)
+end
+
 def play_game
   puts "\e[H\e[2J"
   puts 'HANGMAN - try to guess the word!'
@@ -53,16 +63,7 @@ def play_game
   input = ''
   input = gets.chomp until %w[y n].include?(input)
   gamestate = input == 'y' ? load : new_game
-
-  until gamestate.game_over?
-    puts "\tMISTAKES #{gamestate.mistakes}"
-    puts "\tINCORRECT LETTERS SO FAR: #{gamestate.incorrect_letters}"
-    puts "\t#{gamestate.guessed_so_far}"
-    input = gets.downcase.chomp
-    save(gamestate) if input == 'save'
-    char = input[0]
-    gamestate.update_state(char)
-  end
+  game_loop(gamestate) until gamestate.game_over?
   verb = gamestate.loser? ? 'LOSE' : 'WIN'
   puts "\nTHE WORD WAS #{gamestate.word_to_guess}, YOU #{verb}"
 end
