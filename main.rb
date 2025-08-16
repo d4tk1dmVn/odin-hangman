@@ -1,4 +1,5 @@
 require_relative 'config/constants'
+require_relative 'lib/gamestate'
 
 def get_random_word(sourcefile, minlength, maxlength)
   wordlist = []
@@ -9,35 +10,61 @@ def get_random_word(sourcefile, minlength, maxlength)
   wordlist.sample
 end
 
+def write_file(gamestate, destination)
+  serialized_gamestate = Marshal.dump(gamestate)
+  f = File.open(destination, 'w')
+  f.puts serialized_gamestate
+  f.close
+end
+
+def read_file(sourcefile)
+  result = ''
+  File.readlines(sourcefile).each { |line| result << line }
+  Marshal.load(result)
+end
+
 def save
-  puts 'SAVING GAME...'
+  puts 'WHERE SHALL WE SAVE THE GAME?'
+  input = gets.chomp
+  input = gets.chomp while File.exist?(input)
+  write_file(gamestate, input)
+  puts "\e[H\e[2J"
+  puts "GAME SAVED AT FILE #{input}"
+  puts "\nExiting...\n"
   Kernel.exit(0)
 end
 
-word_to_guess = get_random_word(Constants::SOURCEFILE, Constants::MINLENGTH, Constants::MAXLENGTH)
-guessed = '_' * word_to_guess.length
-incorrect_letters = []
-mistakes = 0
-
-puts 'HANGMAN - try to guess the word!'
-
-while mistakes < Constants::ATTEMPTS && guessed != word_to_guess
-  puts "\tMISTAKES #{mistakes}/#{Constants::ATTEMPTS}"
-  puts "\tINCORRECT LETTERS SO FAR: #{incorrect_letters.join(' ')}"
-  puts "\t#{guessed}"
-  input = gets.downcase.chomp
-  save if input == 'save'
-  char = input[0]
-  if word_to_guess.include?(char)
-    word_to_guess.chars.each_with_index do |solution_char, index|
-      guessed[index] = char if solution_char == char
-    end
-  else
-    incorrect_letters << char
-    mistakes += 1
-  end
+def load
+  puts 'WHICH IS THE SAVED GAME NAME?'
+  input = ''
+  input = gets.chomp until File.exist?(input)
+  read_file(input)
 end
 
-verb = mistakes == Constants::ATTEMPTS ? 'LOSE' : 'WIN'
+def new_game
+  word_to_guess = get_random_word(Constants::SOURCEFILE, Constants::MINLENGTH, Constants::MAXLENGTH)
+  GameState.new(word_to_guess)
+end
 
-puts "\nTHE WORD WAS #{word_to_guess}, YOU #{verb}"
+def play_game
+  puts "\e[H\e[2J"
+  puts 'HANGMAN - try to guess the word!'
+  puts 'WOULD YOU LIKE TO LOAD A GAME?'
+  input = ''
+  input = gets.chomp until %w[y n].include?(input)
+  gamestate = input == 'y' ? load : new_game
+
+  until gamestate.game_over?
+    puts "\tMISTAKES #{gamestate.mistakes}"
+    puts "\tINCORRECT LETTERS SO FAR: #{gamestate.incorrect_letters}"
+    puts "\t#{gamestate.guessed_so_far}"
+    input = gets.downcase.chomp
+    save(gamestate) if input == 'save'
+    char = input[0]
+    gamestate.update_state(char)
+  end
+  verb = gamestate.loser? ? 'LOSE' : 'WIN'
+  puts "\nTHE WORD WAS #{gamestate.word_to_guess}, YOU #{verb}"
+end
+
+play_game
